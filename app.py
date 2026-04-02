@@ -5,7 +5,7 @@ import time
 from sklearn.ensemble import RandomForestClassifier
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="Fatigue Monitoring", layout="wide")
+st.set_page_config(page_title="Fatigue Monitoring System", layout="wide")
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data
@@ -21,14 +21,18 @@ model = RandomForestClassifier()
 model.fit(X, y)
 
 # ---------------- HEADER ----------------
-st.markdown("<h1 style='text-align: center;'>🏃 AI Fatigue Monitoring System</h1>", unsafe_allow_html=True)
+st.markdown("""
+    <h1 style='text-align: center;'>🏃 AI Fatigue Monitoring Dashboard</h1>
+    <p style='text-align: center;'>Real-time Athlete Health Monitoring System</p>
+""", unsafe_allow_html=True)
+
 st.markdown("---")
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("⚙ Control Panel")
 
-start = st.sidebar.button("▶ Start")
-stop = st.sidebar.button("⏹ Stop")
+start = st.sidebar.button("▶ Start Monitoring")
+stop = st.sidebar.button("⏹ Stop Monitoring")
 
 if "run" not in st.session_state:
     st.session_state.run = False
@@ -42,11 +46,13 @@ if stop:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# ---------------- TABS ----------------
-tab1, tab2, tab3 = st.tabs(["📡 Live Monitor", "📊 Analytics", "📁 History"])
+# ---------------- MAIN LAYOUT ----------------
+col_main, col_side = st.columns([3, 1])
 
-# ---------------- LIVE MONITOR ----------------
-with tab1:
+# ---------------- LIVE DATA ----------------
+with col_main:
+
+    st.subheader("📡 Live Monitoring")
 
     placeholder = st.empty()
 
@@ -69,15 +75,15 @@ with tab1:
 
         with placeholder.container():
 
-            st.subheader("📡 Live Sensor Data")
-
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Glucose", glucose)
-            col2.metric("Hb", hb)
-            col3.metric("Hydration", hydration)
+            # Metric Cards
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Glucose", glucose)
+            m2.metric("Hb", hb)
+            m3.metric("Hydration", hydration)
 
             st.markdown("---")
 
+            # Fatigue Status
             st.subheader("⚡ Fatigue Status")
 
             if prediction == "High":
@@ -87,7 +93,8 @@ with tab1:
             else:
                 st.success("✅ LOW FATIGUE")
 
-            st.markdown("### 🧠 Recommendation")
+            # Recommendation
+            st.subheader("🧠 Recommendation")
 
             if prediction == "High":
                 st.write("• Immediate rest required")
@@ -97,55 +104,63 @@ with tab1:
             elif prediction == "Medium":
                 st.write("• Take short rest")
                 st.write("• Drink water")
-                st.write("• Reduce activity")
 
             else:
                 st.write("• Continue normal activity")
-                st.write("• Stay hydrated")
-
-            # Alerts
-            st.markdown("---")
-            st.subheader("⚠ Risk Alerts")
-
-            if hydration < 55:
-                st.warning("💧 Dehydration Risk")
-            if hb < 11:
-                st.warning("🩸 Low Hemoglobin")
-            if glucose > 170:
-                st.warning("🍬 High Glucose")
 
         time.sleep(2)
 
-# ---------------- ANALYTICS ----------------
-with tab2:
+# ---------------- SIDE PANEL ----------------
+with col_side:
+
+    st.subheader("⚠ Risk Alerts")
+
+    if len(st.session_state.history) > 0:
+        last = st.session_state.history[-1]
+
+        if last["Hydration"] < 55:
+            st.warning("💧 Dehydration Risk")
+
+        if last["Hb"] < 11:
+            st.warning("🩸 Low Hemoglobin")
+
+        if last["Glucose"] > 170:
+            st.warning("🍬 High Glucose")
+
+    st.markdown("---")
+
+    st.subheader("📊 Quick Stats")
 
     if len(st.session_state.history) > 0:
         df = pd.DataFrame(st.session_state.history)
+        st.write("Average Values:")
+        st.write(df.mean())
 
-        st.subheader("📊 Trends")
+# ---------------- ANALYTICS ----------------
+st.markdown("---")
+st.subheader("📊 Analytics")
+
+if len(st.session_state.history) > 0:
+    df = pd.DataFrame(st.session_state.history)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
         st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
 
-        st.subheader("📉 Fatigue Distribution")
+    with c2:
         st.bar_chart(df['Fatigue'].value_counts())
 
-        st.subheader("📌 Summary")
-        st.write(df.describe())
-
-    else:
-        st.info("No data yet. Start monitoring.")
-
 # ---------------- HISTORY ----------------
-with tab3:
+st.markdown("---")
+st.subheader("📁 History Data")
 
-    if len(st.session_state.history) > 0:
-        df = pd.DataFrame(st.session_state.history)
+if len(st.session_state.history) > 0:
+    df = pd.DataFrame(st.session_state.history)
+    st.dataframe(df)
 
-        st.subheader("📁 Recorded Data")
-        st.dataframe(df)
-
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("⬇ Download Data", csv, "fatigue_data.csv", "text/csv")
-
-    else:
-        st.info("No history available.")
+    csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button("⬇ Download Data", csv, "fatigue_data.csv", "text/csv")
+else:
+    st.info("No data available")
 
