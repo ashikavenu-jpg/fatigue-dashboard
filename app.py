@@ -133,8 +133,14 @@ with col_side:
 
     if len(st.session_state.history) > 0:
         df = pd.DataFrame(st.session_state.history)
-        st.write("Average Values:")
-        st.write(df.mean())
+
+        avg = df[['Glucose', 'Hb', 'Hydration']].mean()
+
+        st.write({
+            "Glucose Avg": round(avg['Glucose'], 2),
+            "Hb Avg": round(avg['Hb'], 2),
+            "Hydration Avg": round(avg['Hydration'], 2)
+        })
 
 # ---------------- ANALYTICS ----------------
 st.markdown("---")
