@@ -1,0 +1,118 @@
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import random
+from sklearn.ensemble import RandomForestClassifier
+
+# ---------------- LOGIN SYSTEM ----------------
+def login():
+    st.title("🔐 Login Page")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if username == "admin" and password == "1234":
+            st.session_state["logged_in"] = True
+        else:
+            st.error("Invalid Credentials")
+
+# ---------------- LOAD DATA ----------------
+@st.cache_data
+def load_data():
+    return pd.read_csv("full_fatigue_dataset.csv")
+
+data = load_data()
+
+X = data[['Glucose', 'Hb', 'Hydration']]
+y = data['Fatigue']
+
+model = RandomForestClassifier(n_estimators=100)
+model.fit(X, y)
+
+# ---------------- MAIN DASHBOARD ----------------
+def dashboard():
+
+    st.set_page_config(layout="wide")
+    st.title("🏃 Smart Fatigue Monitoring System")
+
+    # Sidebar
+    st.sidebar.header("📡 Live Sensor Input")
+
+    # Live Sensor Simulation
+    if st.sidebar.button("Generate Live Data"):
+        st.session_state["glucose"] = random.randint(120, 180)
+        st.session_state["hb"] = random.randint(10, 16)
+        st.session_state["hydration"] = random.randint(50, 70)
+
+    glucose = st.sidebar.slider("Glucose", 80, 200, st.session_state.get("glucose", 140))
+    hb = st.sidebar.slider("Hb", 8, 18, st.session_state.get("hb", 13))
+    hydration = st.sidebar.slider("Hydration", 40, 100, st.session_state.get("hydration", 60))
+
+    # Prediction
+    prediction = model.predict([[glucose, hb, hydration]])[0]
+
+    # Layout
+    col1, col2 = st.columns([1,1])
+
+    # Column 1: Prediction
+    with col1:
+        st.subheader("📊 Fatigue Result")
+
+        if prediction == "High":
+            st.error("⚠ HIGH FATIGUE")
+        elif prediction == "Medium":
+            st.warning("⚠ MEDIUM FATIGUE")
+        else:
+            st.success("✅ LOW FATIGUE")
+
+        st.write("### Recommendations")
+        if prediction == "High":
+            st.write("- Drink water immediately")
+            st.write("- Take rest")
+        elif prediction == "Medium":
+            st.write("- Short rest")
+            st.write("- Hydrate")
+        else:
+            st.write("- Good condition")
+
+    # ---------------- HISTORY TRACKING ----------------
+    if "history" not in st.session_state:
+        st.session_state["history"] = []
+
+    st.session_state["history"].append({
+        "Glucose": glucose,
+        "Hb": hb,
+        "Hydration": hydration,
+        "Fatigue": prediction
+    })
+
+    history_df = pd.DataFrame(st.session_state["history"])
+
+    with col2:
+        st.subheader("📈 Athlete History")
+        st.dataframe(history_df.tail(5))
+
+    # ---------------- GRAPH ----------------
+    st.subheader("📊 Fatigue Distribution")
+
+    fatigue_counts = data['Fatigue'].value_counts()
+    fig, ax = plt.subplots()
+    fatigue_counts.plot(kind='bar', ax=ax)
+    st.pyplot(fig)
+
+    # Scatter Plot
+    st.subheader("💧 Hydration vs Glucose")
+
+    fig2, ax2 = plt.subplots()
+    ax2.scatter(data['Hydration'], data['Glucose'])
+    st.pyplot(fig2)
+
+# ---------------- APP FLOW ----------------
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+
+if not st.session_state["logged_in"]:
+    login()
+else:
+    dashboard()
