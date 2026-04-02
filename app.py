@@ -75,13 +75,44 @@ with tab1:
 
             st.subheader("⚡ Fatigue Status")
 
-            if prediction == "High":
-                st.error("⚠ HIGH FATIGUE 🔔")
-                st.audio("https://www.soundjay.com/buttons/beep-07.mp3")
-            elif prediction == "Medium":
-                st.warning("⚠ MEDIUM FATIGUE")
-            else:
-                st.success("✅ LOW FATIGUE")
+            st.subheader("⚡ Fatigue Status & CDSS Recommendation")
+
+if prediction == "High":
+    st.error("⚠ HIGH FATIGUE - CRITICAL CONDITION")
+
+    st.write("### 🧠 CDSS Recommendation")
+    st.write("- Immediate rest required")
+    st.write("- Drink electrolyte fluids")
+    st.write("- Avoid physical activity")
+    st.write("- Monitor vital signs")
+    st.write("- Seek medical attention if needed")
+
+elif prediction == "Medium":
+    st.warning("⚠ MEDIUM FATIGUE - MODERATE RISK")
+
+    st.write("### 🧠 CDSS Recommendation")
+    st.write("- Take short rest")
+    st.write("- Drink water")
+    st.write("- Reduce activity")
+    st.write("- Recheck condition")
+
+else:
+    st.success("✅ LOW FATIGUE - NORMAL")
+
+    st.write("### 🧠 CDSS Recommendation")
+    st.write("- Continue activity")
+    st.write("- Stay hydrated")
+    st.write("- Monitor regularly")
+
+# -------- EXTRA SMART ALERTS --------
+if hydration < 55:
+    st.warning("💧 Dehydration Risk")
+
+if hb < 11:
+    st.warning("🩸 Low Hemoglobin Risk")
+
+if glucose > 170:
+    st.warning("🍬 High Glucose Risk")
 
         time.sleep(2)
 
