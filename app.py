@@ -5,7 +5,7 @@ import time
 from sklearn.ensemble import RandomForestClassifier
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="AI Fatigue System", layout="wide")
+st.set_page_config(page_title="AI Fatigue Monitoring System", layout="wide")
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data
@@ -20,11 +20,12 @@ y = data['Fatigue']
 model = RandomForestClassifier()
 model.fit(X, y)
 
-# ---------------- HEADER ----------------
-st.title("🏃 AI-Based Live Fatigue Monitoring System")
+# ---------------- TITLE ----------------
+st.title("🏃 AI-Based Live Fatigue Monitoring System with CDSS")
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.header("⚙ Controls")
+
 start = st.sidebar.button("▶ Start Monitoring")
 stop = st.sidebar.button("⏹ Stop")
 
@@ -41,7 +42,7 @@ if "history" not in st.session_state:
     st.session_state.history = []
 
 # ---------------- TABS ----------------
-tab1, tab2, tab3 = st.tabs(["📡 Live Monitoring", "📊 Analytics", "📁 History"])
+tab1, tab2, tab3 = st.tabs(["📡 Live", "📊 Analytics", "📁 History"])
 
 # ---------------- LIVE MONITORING ----------------
 with tab1:
@@ -50,12 +51,14 @@ with tab1:
 
     while st.session_state.run:
 
+        # Simulated sensor values
         glucose = random.randint(120, 180)
         hb = random.randint(10, 16)
         hydration = random.randint(50, 70)
 
         prediction = model.predict([[glucose, hb, hydration]])[0]
 
+        # Save history
         st.session_state.history.append({
             "Glucose": glucose,
             "Hb": hb,
@@ -67,52 +70,45 @@ with tab1:
 
         with placeholder.container():
 
-            # KPI Cards
+            # KPI CARDS
             c1, c2, c3 = st.columns(3)
             c1.metric("Glucose", glucose)
             c2.metric("Hb", hb)
             c3.metric("Hydration", hydration)
 
-            st.subheader("⚡ Fatigue Status")
+            st.subheader("⚡ Fatigue Status & CDSS")
 
-            st.subheader("⚡ Fatigue Status & CDSS Recommendation")
+            # CDSS LOGIC
+            if prediction == "High":
+                st.error("⚠ HIGH FATIGUE - CRITICAL")
+                st.write("### 🧠 Recommendation")
+                st.write("- Immediate rest")
+                st.write("- Drink electrolyte fluids")
+                st.write("- Avoid physical activity")
+                st.write("- Monitor condition")
 
-if prediction == "High":
-    st.error("⚠ HIGH FATIGUE - CRITICAL CONDITION")
+            elif prediction == "Medium":
+                st.warning("⚠ MEDIUM FATIGUE")
+                st.write("### 🧠 Recommendation")
+                st.write("- Take short rest")
+                st.write("- Hydrate properly")
+                st.write("- Reduce activity")
 
-    st.write("### 🧠 CDSS Recommendation")
-    st.write("- Immediate rest required")
-    st.write("- Drink electrolyte fluids")
-    st.write("- Avoid physical activity")
-    st.write("- Monitor vital signs")
-    st.write("- Seek medical attention if needed")
+            else:
+                st.success("✅ LOW FATIGUE")
+                st.write("### 🧠 Recommendation")
+                st.write("- Continue activity")
+                st.write("- Maintain hydration")
 
-elif prediction == "Medium":
-    st.warning("⚠ MEDIUM FATIGUE - MODERATE RISK")
+            # EXTRA ALERTS
+            if hydration < 55:
+                st.warning("💧 Dehydration Risk")
 
-    st.write("### 🧠 CDSS Recommendation")
-    st.write("- Take short rest")
-    st.write("- Drink water")
-    st.write("- Reduce activity")
-    st.write("- Recheck condition")
+            if hb < 11:
+                st.warning("🩸 Low Hemoglobin")
 
-else:
-    st.success("✅ LOW FATIGUE - NORMAL")
-
-    st.write("### 🧠 CDSS Recommendation")
-    st.write("- Continue activity")
-    st.write("- Stay hydrated")
-    st.write("- Monitor regularly")
-
-# -------- EXTRA SMART ALERTS --------
-if hydration < 55:
-    st.warning("💧 Dehydration Risk")
-
-if hb < 11:
-    st.warning("🩸 Low Hemoglobin Risk")
-
-if glucose > 170:
-    st.warning("🍬 High Glucose Risk")
+            if glucose > 170:
+                st.warning("🍬 High Glucose")
 
         time.sleep(2)
 
@@ -122,13 +118,13 @@ with tab2:
     if len(st.session_state.history) > 0:
         df = pd.DataFrame(st.session_state.history)
 
-        st.subheader("📊 Live Trend Graph")
-        st.line_chart(df[['Glucose','Hb','Hydration']])
+        st.subheader("📊 Live Trends")
+        st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
 
         st.subheader("📉 Fatigue Distribution")
         st.bar_chart(df['Fatigue'].value_counts())
 
-        st.subheader("📌 Summary")
+        st.subheader("📌 Statistical Summary")
         st.write(df.describe())
 
     else:
@@ -142,7 +138,7 @@ with tab3:
 
         st.dataframe(df)
 
-        # Download button
+        # Download option
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("⬇ Download Data", csv, "fatigue_data.csv", "text/csv")
 
