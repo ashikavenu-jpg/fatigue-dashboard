@@ -36,6 +36,31 @@ if "run" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
+if "time_sec" not in st.session_state:
+    st.session_state.time_sec = 0
+
+# ---------------- AUTO UPDATE ----------------
+if st.session_state.run:
+    time.sleep(2)
+    st.session_state.time_sec += 2
+    st.rerun()
+
+# ---------------- GENERATE DATA ----------------
+def generate_data():
+    glucose = random.randint(120, 180)
+    hb = random.randint(10, 16)
+    hydration = random.randint(50, 70)
+
+    prediction = model.predict([[glucose, hb, hydration]])[0]
+
+    st.session_state.history.append({
+        "Time": st.session_state.time_sec,
+        "Glucose": glucose,
+        "Hb": hb,
+        "Hydration": hydration,
+        "Fatigue": prediction
+    })
+
 # =========================================================
 # 🔷 PAGE 1: LIVE MONITORING
 # =========================================================
@@ -53,51 +78,39 @@ if page == "Live Monitoring":
     if stop:
         st.session_state.run = False
 
-    # 🔁 AUTO UPDATE
+    # Generate new data when running
     if st.session_state.run:
-        time.sleep(2)
-        st.rerun()
+        generate_data()
 
-    # Generate values
-    glucose = random.randint(120, 180)
-    hb = random.randint(10, 16)
-    hydration = random.randint(50, 70)
+    if len(st.session_state.history) > 0:
+        df = pd.DataFrame(st.session_state.history)
+        last = df.iloc[-1]
 
-    prediction = model.predict([[glucose, hb, hydration]])[0]
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Glucose", int(last["Glucose"]))
+        c2.metric("Hemoglobin", int(last["Hb"]))
+        c3.metric("Hydration", int(last["Hydration"]))
 
-    # Save
-    st.session_state.history.append({
-        "Glucose": glucose,
-        "Hb": hb,
-        "Hydration": hydration,
-        "Fatigue": prediction
-    })
+        st.divider()
 
-    df = pd.DataFrame(st.session_state.history)
+        st.subheader("Fatigue Level")
 
-    # UI
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Glucose", glucose)
-    c2.metric("Hemoglobin", hb)
-    c3.metric("Hydration", hydration)
+        if last["Fatigue"] == "High":
+            st.error("HIGH FATIGUE")
+        elif last["Fatigue"] == "Medium":
+            st.warning("MEDIUM FATIGUE")
+        else:
+            st.success("LOW FATIGUE")
 
-    st.divider()
+        st.divider()
 
-    st.subheader("Fatigue Level")
+        st.line_chart(df.set_index("Time")[['Glucose', 'Hb', 'Hydration']])
 
-    if prediction == "High":
-        st.error("HIGH FATIGUE")
-    elif prediction == "Medium":
-        st.warning("MEDIUM FATIGUE")
     else:
-        st.success("LOW FATIGUE")
-
-    st.divider()
-
-    st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
+        st.info("Click Start Monitoring")
 
 # =========================================================
-# 🔷 PAGE 2: CDSS RECOMMENDATION
+# 🔷 PAGE 2: CDSS
 # =========================================================
 elif page == "CDSS Recommendation":
 
@@ -105,62 +118,53 @@ elif page == "CDSS Recommendation":
 
     if len(st.session_state.history) > 0:
 
-        last = st.session_state.history[-1]
+        last = pd.DataFrame(st.session_state.history).iloc[-1]
 
         glucose = last["Glucose"]
         hb = last["Hb"]
         hydration = last["Hydration"]
         prediction = last["Fatigue"]
 
-        st.subheader("Latest Patient Condition")
+        st.subheader("Latest Values")
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("Glucose", glucose)
-        c2.metric("Hemoglobin", hb)
-        c3.metric("Hydration", hydration)
+        c1.metric("Glucose", int(glucose))
+        c2.metric("Hemoglobin", int(hb))
+        c3.metric("Hydration", int(hydration))
 
         st.divider()
 
         st.subheader("CDSS Recommendation")
 
-        # Main decision
         if prediction == "High":
-            st.error("Critical fatigue → Immediate rest & monitoring")
+            st.error("Immediate rest + monitoring")
 
         elif prediction == "Medium":
-            st.warning("Moderate fatigue → Reduce activity & hydrate")
+            st.warning("Reduce activity + hydration")
 
         else:
-            st.success("Normal → Continue routine")
+            st.success("Normal condition")
 
         st.divider()
 
-        # 7 CDSS CONDITIONS
-        st.subheader("Risk Conditions")
-
+        # 7 CONDITIONS
         if hydration < 55:
-            st.warning("1. Dehydration risk")
-
+            st.warning("Dehydration risk")
         if hb < 11:
-            st.warning("2. Low hemoglobin")
-
+            st.warning("Low Hb risk")
         if glucose > 170:
-            st.warning("3. High glucose level")
-
+            st.warning("High glucose")
         if hb < 11 and hydration < 55:
-            st.error("4. Combined oxygen + hydration risk")
-
+            st.error("Combined risk")
         if glucose > 170 and hydration < 55:
-            st.error("5. Metabolic + dehydration risk")
-
+            st.error("Metabolic risk")
         if prediction == "High" and hb < 11:
-            st.error("6. Severe fatigue + low Hb risk")
-
+            st.error("Severe fatigue + Hb")
         if prediction == "High" and hydration < 55:
-            st.error("7. Severe fatigue + dehydration risk")
+            st.error("Severe fatigue + hydration")
 
     else:
-        st.info("Run Live Monitoring first")
+        st.info("Run monitoring first")
 
 # =========================================================
 # 🔷 PAGE 3: GRAPH ANALYSIS
@@ -173,8 +177,13 @@ elif page == "Graph Analysis":
 
         df = pd.DataFrame(st.session_state.history)
 
-        st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
+        st.subheader("Trend vs Time (seconds)")
+        st.line_chart(df.set_index("Time")[['Glucose', 'Hb', 'Hydration']])
+
+        st.subheader("Fatigue Distribution")
         st.bar_chart(df['Fatigue'].value_counts())
+
+        st.subheader("Summary")
 
         avg = df[['Glucose', 'Hb', 'Hydration']].mean()
 
@@ -197,6 +206,7 @@ elif page == "Recorded Data":
     if len(st.session_state.history) > 0:
 
         df = pd.DataFrame(st.session_state.history)
+
         st.dataframe(df)
 
         csv = df.to_csv(index=False).encode('utf-8')
