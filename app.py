@@ -5,7 +5,7 @@ import time
 from sklearn.ensemble import RandomForestClassifier
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="Fatigue Monitoring System", layout="wide")
+st.set_page_config(page_title="Patient Monitoring System", layout="wide")
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data
@@ -21,18 +21,16 @@ model = RandomForestClassifier()
 model.fit(X, y)
 
 # ---------------- HEADER ----------------
-st.markdown("""
-    <h1 style='text-align: center;'>🏃 AI Fatigue Monitoring Dashboard</h1>
-    <p style='text-align: center;'>Real-time Athlete Health Monitoring System</p>
-""", unsafe_allow_html=True)
+st.title("Patient Monitoring System")
+st.caption("Real-time Fatigue Monitoring with Decision Support")
 
-st.markdown("---")
+st.divider()
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("⚙ Control Panel")
+# ---------------- CONTROL ----------------
+col1, col2, col3 = st.columns([1,1,6])
 
-start = st.sidebar.button("▶ Start Monitoring")
-stop = st.sidebar.button("⏹ Stop Monitoring")
+start = col1.button("Start")
+stop = col2.button("Stop")
 
 if "run" not in st.session_state:
     st.session_state.run = False
@@ -46,121 +44,89 @@ if stop:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# ---------------- MAIN LAYOUT ----------------
-col_main, col_side = st.columns([3, 1])
+# ---------------- PLACEHOLDER ----------------
+placeholder = st.empty()
 
-# ---------------- LIVE DATA ----------------
-with col_main:
+# ---------------- MAIN ----------------
+while st.session_state.run:
 
-    st.subheader("📡 Live Monitoring")
+    glucose = random.randint(120, 180)
+    hb = random.randint(10, 16)
+    hydration = random.randint(50, 70)
 
-    placeholder = st.empty()
+    prediction = model.predict([[glucose, hb, hydration]])[0]
 
-    while st.session_state.run:
+    st.session_state.history.append({
+        "Glucose": glucose,
+        "Hb": hb,
+        "Hydration": hydration,
+        "Fatigue": prediction
+    })
 
-        glucose = random.randint(120, 180)
-        hb = random.randint(10, 16)
-        hydration = random.randint(50, 70)
-
-        prediction = model.predict([[glucose, hb, hydration]])[0]
-
-        st.session_state.history.append({
-            "Glucose": glucose,
-            "Hb": hb,
-            "Hydration": hydration,
-            "Fatigue": prediction
-        })
-
-        df = pd.DataFrame(st.session_state.history)
-
-        with placeholder.container():
-
-            # Metric Cards
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Glucose", glucose)
-            m2.metric("Hb", hb)
-            m3.metric("Hydration", hydration)
-
-            st.markdown("---")
-
-            # Fatigue Status
-            st.subheader("⚡ Fatigue Status")
-
-            if prediction == "High":
-                st.error("⚠ HIGH FATIGUE")
-            elif prediction == "Medium":
-                st.warning("⚠ MEDIUM FATIGUE")
-            else:
-                st.success("✅ LOW FATIGUE")
-
-            # Recommendation
-            st.subheader("🧠 Recommendation")
-
-            if prediction == "High":
-                st.write("• Immediate rest required")
-                st.write("• Drink electrolyte fluids")
-                st.write("• Avoid physical activity")
-
-            elif prediction == "Medium":
-                st.write("• Take short rest")
-                st.write("• Drink water")
-
-            else:
-                st.write("• Continue normal activity")
-
-        time.sleep(2)
-
-# ---------------- SIDE PANEL ----------------
-with col_side:
-
-    st.subheader("⚠ Risk Alerts")
-
-    if len(st.session_state.history) > 0:
-        last = st.session_state.history[-1]
-
-        if last["Hydration"] < 55:
-            st.warning("💧 Dehydration Risk")
-
-        if last["Hb"] < 11:
-            st.warning("🩸 Low Hemoglobin")
-
-        if last["Glucose"] > 170:
-            st.warning("🍬 High Glucose")
-
-    st.markdown("---")
-
-    st.subheader("📊 Quick Stats")
-
-    if len(st.session_state.history) > 0:
-        df = pd.DataFrame(st.session_state.history)
-        st.write("Average Values:")
-        st.write(df.mean())
-
-# ---------------- ANALYTICS ----------------
-st.markdown("---")
-st.subheader("📊 Analytics")
-
-if len(st.session_state.history) > 0:
     df = pd.DataFrame(st.session_state.history)
 
-    c1, c2 = st.columns(2)
+    with placeholder.container():
 
-    with c1:
+        # -------- SECTION 1: VITALS --------
+        st.subheader("Vitals")
+
+        v1, v2, v3 = st.columns(3)
+        v1.metric("Glucose", glucose)
+        v2.metric("Hemoglobin", hb)
+        v3.metric("Hydration", hydration)
+
+        st.divider()
+
+        # -------- SECTION 2: STATUS --------
+        st.subheader("Patient Status")
+
+        if prediction == "High":
+            st.error("High Fatigue")
+        elif prediction == "Medium":
+            st.warning("Medium Fatigue")
+        else:
+            st.success("Low Fatigue")
+
+        st.divider()
+
+        # -------- SECTION 3: RECOMMENDATION --------
+        st.subheader("Clinical Recommendation")
+
+        if prediction == "High":
+            st.write("Patient requires immediate rest and monitoring.")
+        elif prediction == "Medium":
+            st.write("Advise hydration and short rest.")
+        else:
+            st.write("Patient condition stable.")
+
+        st.divider()
+
+        # -------- SECTION 4: ALERTS --------
+        st.subheader("Alerts")
+
+        if hydration < 55:
+            st.warning("Low hydration level")
+        if hb < 11:
+            st.warning("Low hemoglobin level")
+        if glucose > 170:
+            st.warning("High glucose level")
+
+        st.divider()
+
+        # -------- SECTION 5: GRAPH --------
+        st.subheader("Trend")
+
         st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
 
-    with c2:
-        st.bar_chart(df['Fatigue'].value_counts())
+    time.sleep(2)
 
-# ---------------- HISTORY ----------------
-st.markdown("---")
-st.subheader("📁 History Data")
+# ---------------- HISTORY TABLE ----------------
+st.divider()
+st.subheader("Patient Data History")
 
 if len(st.session_state.history) > 0:
     df = pd.DataFrame(st.session_state.history)
     st.dataframe(df)
-
-    csv = df.to_csv(index=False).encode('utf-8')
-    st.download_button("⬇ Download Data", csv, "fatigue_data.csv", "text/csv")
 else:
     st.info("No data available")
 
