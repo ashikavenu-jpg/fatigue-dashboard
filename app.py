@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import time
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 
 # ---------------- CONFIG ----------------
@@ -121,13 +122,13 @@ if page == "Live Monitoring":
         time.sleep(2)
 
 # =========================================================
-# 🔷 PAGE 2: CDSS OUTPUT
+# 🔷 PAGE 2: CDSS OUTPUT (PIE CHART)
 # =========================================================
 elif page == "CDSS Output":
 
     st.title("CDSS Output")
 
-    # -------- CURRENT MATCH (TOP) --------
+    # -------- CURRENT CONDITION --------
     if st.session_state.latest:
 
         g = st.session_state.latest["Glucose"]
@@ -138,7 +139,7 @@ elif page == "CDSS Output":
         hb_level_val = hb_level(hb)
         h_level = hydration_level(h)
 
-        st.subheader("Current Condition Match")
+        st.subheader("Current Condition")
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Glucose Level", g_level)
@@ -150,22 +151,39 @@ elif page == "CDSS Output":
 
     st.divider()
 
-    # -------- CDSS TABLE (BOTTOM) --------
-    st.subheader("Expected CDSS Outputs")
+    # -------- PIE CHART --------
+    st.subheader("CDSS Level Distribution")
 
-    cdss_table = pd.DataFrame([
-        ["Normal","Normal","Normal","Optimal performance condition","Continue regular training"],
-        ["High","Normal","Normal","Dehydration-induced performance decline","Increase fluids + electrolytes"],
-        ["High","Low","Low","Reduced oxygen delivery → Early fatigue risk","Iron-rich diet + monitor Hb"],
-        ["Normal","Low","Low","High metabolic stress + fatigue + injury risk","Reduce training intensity"],
-        ["Low","Normal","Low","Hypoglycemia + dehydration → Dizziness/cramps","Immediate carbohydrate + fluids"],
-        ["High","Normal","Low","Oxygen deficit + dehydration → Endurance reduction","Recovery + hydration"]
-    ], columns=[
-        "Glucose Level","Hb Estimation","Hydration Status",
-        "Interpretation","CDSS Recommendation"
-    ])
+    if st.session_state.history:
 
-    st.dataframe(cdss_table, use_container_width=True)
+        df = pd.DataFrame(st.session_state.history)
+
+        df["Glucose Level"] = df["Glucose"].apply(glucose_level)
+        df["Hb Level"] = df["Hb"].apply(hb_level)
+        df["Hydration Level"] = df["Hydration"].apply(hydration_level)
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.write("Glucose Distribution")
+            fig1, ax1 = plt.subplots()
+            df["Glucose Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax1)
+            st.pyplot(fig1)
+
+        with col2:
+            st.write("Hb Distribution")
+            fig2, ax2 = plt.subplots()
+            df["Hb Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax2)
+            st.pyplot(fig2)
+
+        with col3:
+            st.write("Hydration Distribution")
+            fig3, ax3 = plt.subplots()
+            df["Hydration Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax3)
+            st.pyplot(fig3)
+
+    else:
+        st.info("No data available")
 
 # =========================================================
 # 🔷 PAGE 3: INTERPRETATION
