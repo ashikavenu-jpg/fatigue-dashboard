@@ -7,6 +7,31 @@ from sklearn.ensemble import RandomForestClassifier
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Fatigue Monitoring System", layout="wide")
 
+# ---------------- LEVEL FUNCTIONS ----------------
+def glucose_level(g):
+    if g < 100:
+        return "Low"
+    elif g <= 150:
+        return "Normal"
+    else:
+        return "High"
+
+def hb_level(hb):
+    if hb < 11:
+        return "Low"
+    elif hb <= 14:
+        return "Normal"
+    else:
+        return "High"
+
+def hydration_level(h):
+    if h < 55:
+        return "Low"
+    elif h <= 65:
+        return "Normal"
+    else:
+        return "High"
+
 # ---------------- LOAD DATA ----------------
 @st.cache_data
 def load_data():
@@ -48,8 +73,8 @@ if page == "Live Monitoring":
     st.title("Fatigue Monitoring System")
 
     col1, col2 = st.columns(2)
-    start = col1.button("Start")
-    stop = col2.button("Stop")
+    start = col1.button("Start Monitoring")
+    stop = col2.button("Stop Monitoring")
 
     if start:
         st.session_state.run = True
@@ -96,19 +121,45 @@ if page == "Live Monitoring":
         time.sleep(2)
 
 # =========================================================
-# 🔷 PAGE 2: CDSS OUTPUT TABLE
+# 🔷 PAGE 2: CDSS OUTPUT
 # =========================================================
 elif page == "CDSS Output":
 
-    st.title("Expected CDSS Outputs")
+    st.title("CDSS Output")
+
+    # -------- CURRENT MATCH (TOP) --------
+    if st.session_state.latest:
+
+        g = st.session_state.latest["Glucose"]
+        hb = st.session_state.latest["Hb"]
+        h = st.session_state.latest["Hydration"]
+
+        g_level = glucose_level(g)
+        hb_level_val = hb_level(hb)
+        h_level = hydration_level(h)
+
+        st.subheader("Current Condition Match")
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Glucose Level", g_level)
+        col2.metric("Hb Level", hb_level_val)
+        col3.metric("Hydration Level", h_level)
+
+    else:
+        st.info("Run monitoring first")
+
+    st.divider()
+
+    # -------- CDSS TABLE (BOTTOM) --------
+    st.subheader("Expected CDSS Outputs")
 
     cdss_table = pd.DataFrame([
         ["Normal","Normal","Normal","Optimal performance condition","Continue regular training"],
-        ["High","Normal","Normal","Dehydration-induced performance decline","Increase fluids + electrolyte replacement"],
-        ["High","Low","Low","Reduced oxygen delivery → Early fatigue risk","Iron-rich diet, monitor Hb"],
+        ["High","Normal","Normal","Dehydration-induced performance decline","Increase fluids + electrolytes"],
+        ["High","Low","Low","Reduced oxygen delivery → Early fatigue risk","Iron-rich diet + monitor Hb"],
         ["Normal","Low","Low","High metabolic stress + fatigue + injury risk","Reduce training intensity"],
         ["Low","Normal","Low","Hypoglycemia + dehydration → Dizziness/cramps","Immediate carbohydrate + fluids"],
-        ["High","Normal","Low","Oxygen deficit + dehydration → Endurance reduction","Recovery + hydration + Hb monitoring"]
+        ["High","Normal","Low","Oxygen deficit + dehydration → Endurance reduction","Recovery + hydration"]
     ], columns=[
         "Glucose Level","Hb Estimation","Hydration Status",
         "Interpretation","CDSS Recommendation"
@@ -116,22 +167,12 @@ elif page == "CDSS Output":
 
     st.dataframe(cdss_table, use_container_width=True)
 
-    # Highlight current condition
-    if st.session_state.latest:
-        st.subheader("Current Condition Match")
-
-        g = st.session_state.latest["Glucose"]
-        hb = st.session_state.latest["Hb"]
-        h = st.session_state.latest["Hydration"]
-
-        st.write(f"Glucose: {g}, Hb: {hb}, Hydration: {h}")
-
 # =========================================================
-# 🔷 PAGE 3: INTERPRETATION & RECOMMENDATION
+# 🔷 PAGE 3: INTERPRETATION
 # =========================================================
 elif page == "Interpretation":
 
-    st.title("Interpretation & CDSS Recommendation")
+    st.title("Interpretation & Recommendation")
 
     if st.session_state.latest:
 
@@ -139,20 +180,18 @@ elif page == "Interpretation":
         hb = st.session_state.latest["Hb"]
         h = st.session_state.latest["Hydration"]
 
-        # Interpretation
         st.subheader("Interpretation")
 
         if g > 170 and h < 55:
             st.error("Dehydration + high glucose → performance decline")
         elif hb < 11:
-            st.warning("Low Hb → reduced oxygen supply")
+            st.warning("Low Hb → reduced oxygen delivery")
         elif g < 90:
-            st.warning("Low glucose → hypoglycemia risk")
+            st.warning("Hypoglycemia risk")
         else:
-            st.success("Normal physiological condition")
+            st.success("Normal condition")
 
-        # Recommendation
-        st.subheader("CDSS Recommendation")
+        st.subheader("Recommendation")
 
         if g > 170:
             st.write("• Increase fluid intake")
@@ -184,10 +223,14 @@ elif page == "Graph Analysis":
 
         avg = df[['Glucose','Hb','Hydration']].mean()
 
-        st.write(avg)
+        st.write({
+            "Average Glucose": round(avg['Glucose'],2),
+            "Average Hb": round(avg['Hb'],2),
+            "Average Hydration": round(avg['Hydration'],2)
+        })
 
     else:
-        st.info("No data")
+        st.info("No data available")
 
 # =========================================================
 # 🔷 PAGE 5: RECORDED DATA
