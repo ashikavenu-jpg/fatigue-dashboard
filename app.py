@@ -92,26 +92,57 @@ if page == "Live Monitoring":
             st.divider()
 
             # -------- CDSS --------
-            st.subheader("CDSS Recommendation")
+            # -------- CDSS TABLE --------
+st.subheader("Expected CDSS Outputs")
 
-            if prediction == "High":
-                st.error("Immediate rest required")
-            elif prediction == "Medium":
-                st.warning("Reduce activity and hydrate")
-            else:
-                st.success("Normal condition")
+cdss_table = pd.DataFrame({
+    "Glucose level": ["Normal", "High", "High", "Normal", "Low", "High"],
+    "Hb Estimation": ["Normal", "Normal", "Low", "Low", "Normal", "Normal"],
+    "Hydration status": ["Normal", "Normal", "Low", "Low", "Low", "Low"],
+    "Athlete Risk Interpretation": [
+        "Optimal performance condition",
+        "Dehydration-induced performance decline",
+        "Reduced oxygen delivery → Early fatigue risk",
+        "High metabolic stress + fatigue + injury risk",
+        "Hypoglycemia + dehydration → Dizziness/cramps",
+        "Oxygen deficit + dehydration → Endurance reduction"
+    ],
+    "CDSS Recommendation": [
+        "Continue regular training",
+        "Increase fluids + electrolyte replacement",
+        "Iron-rich diet, monitor Hb",
+        "Reduce training intensity, medical evaluation",
+        "Immediate carbohydrate + fluid intake",
+        "Recovery session + hydration + Hb monitoring"
+    ]
+})
+
+st.dataframe(cdss_table, use_container_width=True)
 
             # 7 Conditions
-            if hydration < 55:
-                st.warning("Dehydration risk")
-            if hb < 11:
-                st.warning("Low hemoglobin")
-            if glucose > 170:
-                st.warning("High glucose")
-            if (hydration < 55 and hb < 11):
-                st.error("Combined risk detected")
+           # -------- CURRENT CONDITION MATCH --------
+st.subheader("Current CDSS Decision")
 
-        time.sleep(2)
+if prediction == "Low" and hb >= 11 and hydration >= 55:
+    st.success("Optimal performance condition → Continue regular training")
+
+elif glucose > 150 and hydration >= 55:
+    st.warning("Dehydration-induced performance decline → Increase fluids")
+
+elif hb < 11 and hydration < 55:
+    st.error("Reduced oxygen delivery → Iron-rich diet & monitoring required")
+
+elif hb < 11:
+    st.warning("High fatigue + injury risk → Reduce intensity")
+
+elif glucose < 120 and hydration < 55:
+    st.error("Hypoglycemia + dehydration → Immediate intake required")
+
+elif glucose > 170 and hydration < 55:
+    st.error("Oxygen deficit → Recovery + hydration needed")
+
+else:
+    st.info("General monitoring recommended")
 
 # =========================================================
 # 🔷 PAGE 2: GRAPH ANALYSIS
