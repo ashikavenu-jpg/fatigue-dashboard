@@ -106,7 +106,8 @@ elif page == "CDSS Recommendation":
         hydration = last["Hydration"]
         prediction = last["Fatigue"]
 
-        st.subheader("Latest Values")
+        # -------- VALUES --------
+        st.subheader("Latest Patient Values")
 
         c1, c2, c3 = st.columns(3)
         c1.metric("Glucose", int(glucose))
@@ -115,14 +116,71 @@ elif page == "CDSS Recommendation":
 
         st.divider()
 
+        # -------- RISK INTERPRETATION --------
+        st.subheader("Risk Interpretation")
+
+        if prediction == "High":
+            st.error("Severe fatigue condition → High risk of performance decline and health complications")
+
+        elif prediction == "Medium":
+            st.warning("Moderate fatigue → Reduced efficiency and potential dehydration risk")
+
+        else:
+            st.success("Normal physiological condition → Stable performance")
+
+        # Additional interpretation
+        if hb < 11:
+            st.warning("Low hemoglobin → Reduced oxygen carrying capacity")
+
+        if hydration < 55:
+            st.warning("Low hydration → Risk of dehydration and fatigue")
+
+        if glucose > 170:
+            st.warning("High glucose → Possible metabolic imbalance")
+
+        if hb < 11 and hydration < 55:
+            st.error("Combined oxygen + hydration deficiency → High fatigue risk")
+
+        st.divider()
+
+        # -------- CDSS RECOMMENDATION --------
         st.subheader("CDSS Recommendation")
 
         if prediction == "High":
-            st.error("Immediate rest + monitoring")
+            st.error("Immediate rest required\nProvide fluids and continuous monitoring")
+
         elif prediction == "Medium":
-            st.warning("Reduce activity + hydration")
+            st.warning("Reduce activity level\nIncrease hydration")
+
         else:
-            st.success("Normal condition")
+            st.success("Continue normal activity")
+
+        # -------- 7 CONDITIONS --------
+        st.subheader("Critical Conditions")
+
+        if hydration < 55:
+            st.warning("1. Dehydration risk")
+
+        if hb < 11:
+            st.warning("2. Low hemoglobin risk")
+
+        if glucose > 170:
+            st.warning("3. High glucose level")
+
+        if hb < 11 and hydration < 55:
+            st.error("4. Combined oxygen + hydration risk")
+
+        if glucose > 170 and hydration < 55:
+            st.error("5. Metabolic + dehydration risk")
+
+        if prediction == "High" and hb < 11:
+            st.error("6. Severe fatigue with low Hb")
+
+        if prediction == "High" and hydration < 55:
+            st.error("7. Severe fatigue with dehydration")
+
+    else:
+        st.info("Run Live Monitoring first")
 
         # 7 CONDITIONS
         if hydration < 55:
