@@ -5,7 +5,7 @@ import time
 from sklearn.ensemble import RandomForestClassifier
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="Patient Monitoring System", layout="wide")
+st.set_page_config(page_title="Fatigue Monitoring System", layout="wide")
 
 # ---------------- LOAD DATA ----------------
 @st.cache_data
@@ -21,16 +21,15 @@ model = RandomForestClassifier()
 model.fit(X, y)
 
 # ---------------- HEADER ----------------
-st.title("Patient Monitoring System")
-st.caption("Real-time Fatigue Monitoring with Decision Support")
+st.title("Fatigue Monitoring System")
+st.caption("AI-Based Real-Time Monitoring with CDSS Support")
 
 st.divider()
 
 # ---------------- CONTROL ----------------
-col1, col2, col3 = st.columns([1,1,6])
-
-start = col1.button("Start")
-stop = col2.button("Stop")
+col1, col2 = st.columns(2)
+start = col1.button("Start Monitoring")
+stop = col2.button("Stop Monitoring")
 
 if "run" not in st.session_state:
     st.session_state.run = False
@@ -44,10 +43,9 @@ if stop:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# ---------------- PLACEHOLDER ----------------
 placeholder = st.empty()
 
-# ---------------- MAIN ----------------
+# ---------------- MAIN LOOP ----------------
 while st.session_state.run:
 
     glucose = random.randint(120, 180)
@@ -67,62 +65,88 @@ while st.session_state.run:
 
     with placeholder.container():
 
-        # -------- SECTION 1: VITALS --------
+        # -------- VITALS --------
         st.subheader("Vitals")
 
-        v1, v2, v3 = st.columns(3)
-        v1.metric("Glucose", glucose)
-        v2.metric("Hemoglobin", hb)
-        v3.metric("Hydration", hydration)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Glucose", glucose)
+        c2.metric("Hemoglobin (Hb)", hb)
+        c3.metric("Hydration", hydration)
 
         st.divider()
 
-        # -------- SECTION 2: STATUS --------
-        st.subheader("Patient Status")
+        # -------- FATIGUE LEVEL --------
+        st.subheader("Fatigue Level")
 
         if prediction == "High":
-            st.error("High Fatigue")
+            st.error("HIGH FATIGUE")
         elif prediction == "Medium":
-            st.warning("Medium Fatigue")
+            st.warning("MEDIUM FATIGUE")
         else:
-            st.success("Low Fatigue")
+            st.success("LOW FATIGUE")
 
         st.divider()
 
-        # -------- SECTION 3: RECOMMENDATION --------
-        st.subheader("Clinical Recommendation")
+        # -------- CDSS (7 CONDITIONS) --------
+        st.subheader("Clinical Decision Support System (CDSS)")
 
+        # 1. High fatigue critical
         if prediction == "High":
-            st.write("Patient requires immediate rest and monitoring.")
-        elif prediction == "Medium":
-            st.write("Advise hydration and short rest.")
-        else:
-            st.write("Patient condition stable.")
+            st.error("1. Critical fatigue condition – Immediate rest required")
 
-        st.divider()
+        # 2. Medium fatigue
+        if prediction == "Medium":
+            st.warning("2. Moderate fatigue – Reduce activity and hydrate")
 
-        # -------- SECTION 4: ALERTS --------
-        st.subheader("Alerts")
+        # 3. Low fatigue
+        if prediction == "Low":
+            st.success("3. Normal condition – Continue activity")
 
+        # 4. Low hydration
         if hydration < 55:
-            st.warning("Low hydration level")
+            st.warning("4. Dehydration risk detected")
+
+        # 5. Low Hb
         if hb < 11:
-            st.warning("Low hemoglobin level")
+            st.warning("5. Low hemoglobin level detected")
+
+        # 6. High glucose
         if glucose > 170:
-            st.warning("High glucose level")
+            st.warning("6. Elevated glucose level detected")
+
+        # 7. Combined risk
+        if (hydration < 55 and hb < 11) or (prediction == "High" and glucose > 170):
+            st.error("7. Combined risk – Medical attention recommended")
 
         st.divider()
 
-        # -------- SECTION 5: GRAPH --------
-        st.subheader("Trend")
+        # -------- RECOMMENDATION --------
+        st.subheader("Recommendation")
+
+        if prediction == "High":
+            st.write("• Immediate rest")
+            st.write("• Hydration with electrolytes")
+            st.write("• Monitor continuously")
+
+        elif prediction == "Medium":
+            st.write("• Take short rest")
+            st.write("• Drink fluids")
+
+        else:
+            st.write("• Maintain routine activity")
+
+        st.divider()
+
+        # -------- GRAPH --------
+        st.subheader("Trend Monitoring")
 
         st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
 
     time.sleep(2)
 
-# ---------------- HISTORY TABLE ----------------
+# ---------------- HISTORY ----------------
 st.divider()
-st.subheader("Patient Data History")
+st.subheader("History Data")
 
 if len(st.session_state.history) > 0:
     df = pd.DataFrame(st.session_state.history)
