@@ -50,7 +50,7 @@ if page == "Live Monitoring":
 
     placeholder = st.empty()
 
-    while st.session_state.run:
+    if st.session_state.run:
 
         glucose = random.randint(120, 180)
         hb = random.randint(10, 16)
@@ -91,58 +91,58 @@ if page == "Live Monitoring":
 
             st.divider()
 
-            # -------- CDSS --------
             # -------- CDSS TABLE --------
-st.subheader("Expected CDSS Outputs")
+            st.subheader("Expected CDSS Outputs")
 
-cdss_table = pd.DataFrame({
-    "Glucose level": ["Normal", "High", "High", "Normal", "Low", "High"],
-    "Hb Estimation": ["Normal", "Normal", "Low", "Low", "Normal", "Normal"],
-    "Hydration status": ["Normal", "Normal", "Low", "Low", "Low", "Low"],
-    "Athlete Risk Interpretation": [
-        "Optimal performance condition",
-        "Dehydration-induced performance decline",
-        "Reduced oxygen delivery → Early fatigue risk",
-        "High metabolic stress + fatigue + injury risk",
-        "Hypoglycemia + dehydration → Dizziness/cramps",
-        "Oxygen deficit + dehydration → Endurance reduction"
-    ],
-    "CDSS Recommendation": [
-        "Continue regular training",
-        "Increase fluids + electrolyte replacement",
-        "Iron-rich diet, monitor Hb",
-        "Reduce training intensity, medical evaluation",
-        "Immediate carbohydrate + fluid intake",
-        "Recovery session + hydration + Hb monitoring"
-    ]
-})
+            cdss_table = pd.DataFrame({
+                "Glucose level": ["Normal", "High", "High", "Normal", "Low", "High"],
+                "Hb Estimation": ["Normal", "Normal", "Low", "Low", "Normal", "Normal"],
+                "Hydration status": ["Normal", "Normal", "Low", "Low", "Low", "Low"],
+                "Interpretation": [
+                    "Optimal performance",
+                    "Dehydration performance decline",
+                    "Low oxygen → fatigue risk",
+                    "High stress + fatigue",
+                    "Hypoglycemia + dehydration",
+                    "Oxygen deficit + endurance drop"
+                ],
+                "Recommendation": [
+                    "Continue training",
+                    "Increase fluids",
+                    "Iron-rich diet",
+                    "Reduce intensity",
+                    "Carbohydrate intake",
+                    "Recovery + hydration"
+                ]
+            })
 
-st.dataframe(cdss_table, use_container_width=True)
+            st.dataframe(cdss_table, use_container_width=True)
 
-            # 7 Conditions
-           # -------- CURRENT CONDITION MATCH --------
-st.subheader("Current CDSS Decision")
+            st.divider()
 
-if prediction == "Low" and hb >= 11 and hydration >= 55:
-    st.success("Optimal performance condition → Continue regular training")
+            # -------- CURRENT CDSS --------
+            st.subheader("Current CDSS Decision")
 
-elif glucose > 150 and hydration >= 55:
-    st.warning("Dehydration-induced performance decline → Increase fluids")
+            if prediction == "Low" and hb >= 11 and hydration >= 55:
+                st.success("Optimal condition → Continue training")
 
-elif hb < 11 and hydration < 55:
-    st.error("Reduced oxygen delivery → Iron-rich diet & monitoring required")
+            elif glucose > 150 and hydration >= 55:
+                st.warning("Performance decline → Increase fluids")
 
-elif hb < 11:
-    st.warning("High fatigue + injury risk → Reduce intensity")
+            elif hb < 11 and hydration < 55:
+                st.error("Low oxygen → Iron diet required")
 
-elif glucose < 120 and hydration < 55:
-    st.error("Hypoglycemia + dehydration → Immediate intake required")
+            elif hb < 11:
+                st.warning("Fatigue risk → Reduce activity")
 
-elif glucose > 170 and hydration < 55:
-    st.error("Oxygen deficit → Recovery + hydration needed")
+            elif glucose < 120 and hydration < 55:
+                st.error("Hypoglycemia → Immediate intake")
 
-else:
-    st.info("General monitoring recommended")
+            elif glucose > 170 and hydration < 55:
+                st.error("Oxygen deficit → Recovery needed")
+
+            else:
+                st.info("General monitoring")
 
 # =========================================================
 # 🔷 PAGE 2: GRAPH ANALYSIS
@@ -172,7 +172,7 @@ elif page == "Graph Analysis":
         })
 
     else:
-        st.info("No data available. Run monitoring first.")
+        st.info("Run Live Monitoring first")
 
 # =========================================================
 # 🔷 PAGE 3: RECORDED DATA
@@ -187,7 +187,6 @@ elif page == "Recorded Data":
 
         st.dataframe(df)
 
-        # DOWNLOAD
         csv = df.to_csv(index=False).encode('utf-8')
 
         st.download_button(
@@ -198,5 +197,5 @@ elif page == "Recorded Data":
         )
 
     else:
-        st.info("No recorded data available.")
+        st.info("No data available")
 
