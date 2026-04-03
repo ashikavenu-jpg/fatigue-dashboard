@@ -37,7 +37,6 @@ if "history" not in st.session_state:
 if page == "Live Monitoring":
 
     st.title("Fatigue Monitoring System")
-    st.subheader("Live Monitoring with CDSS")
 
     col1, col2 = st.columns(2)
     start = col1.button("Start Monitoring")
@@ -50,7 +49,7 @@ if page == "Live Monitoring":
 
     placeholder = st.empty()
 
-    if st.session_state.run:
+    while st.session_state.run:
 
         glucose = random.randint(120, 180)
         hb = random.randint(10, 16)
@@ -69,80 +68,59 @@ if page == "Live Monitoring":
 
         with placeholder.container():
 
-            # -------- VITALS --------
-            st.subheader("Vitals")
+            left, right = st.columns([1, 2])
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Glucose", glucose)
-            c2.metric("Hemoglobin", hb)
-            c3.metric("Hydration", hydration)
+            # 🔴 LEFT SIDE → CDSS
+            with left:
+                st.subheader("CDSS Recommendation")
 
-            st.divider()
+                if prediction == "High":
+                    st.error("Immediate rest required\nHydration + medical monitoring")
 
-            # -------- FATIGUE --------
-            st.subheader("Fatigue Level")
+                elif prediction == "Medium":
+                    st.warning("Reduce activity\nIncrease fluid intake")
 
-            if prediction == "High":
-                st.error("HIGH FATIGUE")
-            elif prediction == "Medium":
-                st.warning("MEDIUM FATIGUE")
-            else:
-                st.success("LOW FATIGUE")
+                else:
+                    st.success("Normal condition\nContinue activity")
 
-            st.divider()
+                # Additional rules
+                if hydration < 55:
+                    st.warning("Low hydration detected")
 
-            # -------- CDSS TABLE --------
-            st.subheader("Expected CDSS Outputs")
+                if hb < 11:
+                    st.warning("Low hemoglobin level")
 
-            cdss_table = pd.DataFrame({
-                "Glucose level": ["Normal", "High", "High", "Normal", "Low", "High"],
-                "Hb Estimation": ["Normal", "Normal", "Low", "Low", "Normal", "Normal"],
-                "Hydration status": ["Normal", "Normal", "Low", "Low", "Low", "Low"],
-                "Interpretation": [
-                    "Optimal performance",
-                    "Dehydration performance decline",
-                    "Low oxygen → fatigue risk",
-                    "High stress + fatigue",
-                    "Hypoglycemia + dehydration",
-                    "Oxygen deficit + endurance drop"
-                ],
-                "Recommendation": [
-                    "Continue training",
-                    "Increase fluids",
-                    "Iron-rich diet",
-                    "Reduce intensity",
-                    "Carbohydrate intake",
-                    "Recovery + hydration"
-                ]
-            })
+                if glucose > 170:
+                    st.warning("High glucose level")
 
-            st.dataframe(cdss_table, use_container_width=True)
+                if (hydration < 55 and hb < 11):
+                    st.error("Combined risk → Medical attention needed")
 
-            st.divider()
+            # 🟢 RIGHT SIDE → VITALS + FATIGUE
+            with right:
+                st.subheader("Live Patient Monitoring")
 
-            # -------- CURRENT CDSS --------
-            st.subheader("Current CDSS Decision")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Glucose", glucose)
+                c2.metric("Hemoglobin", hb)
+                c3.metric("Hydration", hydration)
 
-            if prediction == "Low" and hb >= 11 and hydration >= 55:
-                st.success("Optimal condition → Continue training")
+                st.divider()
 
-            elif glucose > 150 and hydration >= 55:
-                st.warning("Performance decline → Increase fluids")
+                st.subheader("Fatigue Level")
 
-            elif hb < 11 and hydration < 55:
-                st.error("Low oxygen → Iron diet required")
+                if prediction == "High":
+                    st.error("HIGH FATIGUE")
+                elif prediction == "Medium":
+                    st.warning("MEDIUM FATIGUE")
+                else:
+                    st.success("LOW FATIGUE")
 
-            elif hb < 11:
-                st.warning("Fatigue risk → Reduce activity")
+                st.divider()
 
-            elif glucose < 120 and hydration < 55:
-                st.error("Hypoglycemia → Immediate intake")
+                st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
 
-            elif glucose > 170 and hydration < 55:
-                st.error("Oxygen deficit → Recovery needed")
-
-            else:
-                st.info("General monitoring")
+        time.sleep(2)
 
 # =========================================================
 # 🔷 PAGE 2: GRAPH ANALYSIS
