@@ -76,13 +76,62 @@ if page == "Live Monitoring":
     st.title("Fatigue Monitoring System")
 
     col1, col2 = st.columns(2)
-    start = col1.button("Start Monitoring")
-    stop = col2.button("Stop Monitoring")
-
-    if start:
+    if col1.button("Start Monitoring"):
         st.session_state.run = True
-    if stop:
+
+    if col2.button("Stop Monitoring"):
         st.session_state.run = False
+
+    # Default values
+    glucose = 0
+    hb = 0
+    hydration = 0
+    fatigue = "Not Started"
+
+    # RUN LOGIC
+    if st.session_state.run:
+
+        glucose = random.randint(120, 180)
+        hb = random.randint(10, 16)
+        hydration = random.randint(50, 70)
+
+        fatigue = model.predict([[glucose, hb, hydration]])[0]
+
+        st.session_state.history.append({
+            "Time": st.session_state.time_sec,
+            "Glucose": glucose,
+            "Hb": hb,
+            "Hydration": hydration,
+            "Fatigue": fatigue
+        })
+
+        st.session_state.time_sec += 2
+
+        # auto refresh every 2 sec
+        time.sleep(2)
+        st.rerun()
+
+    # DISPLAY VALUES ALWAYS
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Glucose", glucose)
+    c2.metric("Hemoglobin", hb)
+    c3.metric("Hydration", hydration)
+
+    st.subheader("Fatigue Level")
+
+    if fatigue == "High":
+        st.error("HIGH FATIGUE")
+    elif fatigue == "Medium":
+        st.warning("MEDIUM FATIGUE")
+    elif fatigue == "Low":
+        st.success("LOW FATIGUE")
+    else:
+        st.info("Click Start Monitoring")
+
+    # GRAPH
+    if len(st.session_state.history) > 0:
+        df = pd.DataFrame(st.session_state.history)
+        st.line_chart(df.set_index("Time")[['Glucose', 'Hb', 'Hydration']])
 
     # ALWAYS SHOW PLACEHOLDER VALUES
     glucose = 0
