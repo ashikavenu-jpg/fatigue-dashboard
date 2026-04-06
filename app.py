@@ -1,278 +1,141 @@
 import streamlit as st
 import pandas as pd
-import random
+import requests
 import time
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 
-# ---------------- CONFIG ----------------
+# ---------------- 1. CONFIGURATION ----------------
+# Go to ThingSpeak -> Channels -> Channel Settings to get the ID
+# Go to ThingSpeak -> API Keys to get the READ API Key
+TS_CHANNEL_ID = "YOUR_CHANNEL_ID" 
+TS_READ_KEY = "YOUR_READ_API_KEY"
+
 st.set_page_config(page_title="Fatigue Monitoring System", layout="wide")
 
-# ---------------- LEVEL FUNCTIONS ----------------
-def glucose_level(g):
-    if g < 100:
-        return "Low"
-    elif g <= 150:
-        return "Normal"
-    else:
-        return "High"
-
-def hb_level(hb):
-    if hb < 11:
-        return "Low"
-    elif hb <= 14:
-        return "Normal"
-    else:
-        return "High"
-
-def hydration_level(h):
-    if h < 55:
-        return "Low"
-    elif h <= 65:
-        return "Normal"
-    else:
-        return "High"
-
-# ---------------- LOAD DATA ----------------
+# ---------------- 2. ML MODEL SETUP ----------------
 @st.cache_data
-def load_data():
-    return pd.read_csv("full_fatigue_dataset.csv")
+def load_and_train():
+    try:
+        # This file must be in your GitHub repository
+        data = pd.read_csv("full_fatigue_dataset.csv")
+        X = data[['Glucose', 'Hb', 'Hydration']]
+        y = data['Fatigue']
+        model = RandomForestClassifier()
+        model.fit(X, y)
+        return model
+    except Exception as e:
+        st.error(f"Error loading dataset: {e}")
+        return None
 
-data = load_data()
+model = load_and_train()
 
-X = data[['Glucose', 'Hb', 'Hydration']]
-y = data['Fatigue']
+# ---------------- 3. DATA FETCH FUNCTION ----------------
+def fetch_from_hardware():
+    url = f"https://api.thingspeak.com/channels/{TS_CHANNEL_ID}/feeds/last.json?api_key={TS_READ_KEY}"
+    try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            # Verify that ThingSpeak actually has data in the fields
+            if 'field1' in data and data['field1'] is not None:
+                return {
+                    "Glucose": float(data['field1']),
+                    "Hb": float(data['field2']),
+                    "Hydration": float(data['field3'])
+                }
+            else:
+                return "No Hardware Data Found"
+        else:
+            return f"ThingSpeak Error: {response.status_code}"
+    except Exception as e:
+        return f"Connection Error: {e}"
 
-model = RandomForestClassifier()
-model.fit(X, y)
-
-# ---------------- SESSION ----------------
+# ---------------- 4. SESSION STATE ----------------
 if "history" not in st.session_state:
     st.session_state.history = []
+if "monitoring" not in st.session_state:
+    st.session_state.monitoring = False
 
-if "latest" not in st.session_state:
-    st.session_state.latest = {}
-
-if "run" not in st.session_state:
-    st.session_state.run = False
-
-# ---------------- SIDEBAR ----------------
+# ---------------- 5. NAVIGATION / SIDEBAR ----------------
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", [
-    "Live Monitoring",
-    "CDSS Output",
-    "Interpretation",
-    "Graph Analysis",
-    "Recorded Data"
-])
+page = st.sidebar.radio("Go to", ["Live Monitoring", "Graph Analysis", "Recorded Data"])
 
 # =========================================================
-# 🔷 PAGE 1: LIVE MONITORING
+# PAGE 1: LIVE MONITORING
 # =========================================================
 if page == "Live Monitoring":
-
     st.title("Fatigue Monitoring System")
+    st.subheader("Hardware Status: Live Feed from ESP01")
 
     col1, col2 = st.columns(2)
-    start = col1.button("Start Monitoring")
-    stop = col2.button("Stop Monitoring")
-
-    if start:
-        st.session_state.run = True
-    if stop:
-        st.session_state.run = False
+    if col1.button("Start Monitoring"):
+        st.session_state.monitoring = True
+    if col2.button("Stop Monitoring"):
+        st.session_state.monitoring = False
 
     placeholder = st.empty()
 
-    while st.session_state.run:
+    if st.session_state.monitoring:
+        while True:
+            result = fetch_from_hardware()
+            
+            with placeholder.container():
+                if isinstance(result, dict):
+                    # Machine Learning Prediction
+                    prediction = model.predict([[result["Glucose"], result["Hb"], result["Hydration"]]])[0]
+                    
+                    # Store data
+                    result["Fatigue"] = prediction
+                    st.session_state.history.append(result)
 
-        glucose = random.randint(80, 200)
-        hb = random.randint(9, 16)
-        hydration = random.randint(45, 75)
+                    # Display Metrics
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Glucose", f"{result['Glucose']} mg/dL")
+                    c2.metric("Hb", f"{result['Hb']} g/dL")
+                    c3.metric("Hydration", f"{result['Hydration']}%")
 
-        prediction = model.predict([[glucose, hb, hydration]])[0]
+                    # Display Alert
+                    if prediction == "High":
+                        st.error("🚨 HIGH FATIGUE DETECTED")
+                    elif prediction == "Medium":
+                        st.warning("⚠️ MEDIUM FATIGUE")
+                    else:
+                        st.success("✅ LOW FATIGUE")
+                    
+                    st.caption(f"Last Sync: {time.strftime('%H:%M:%S')}")
 
-        st.session_state.latest = {
-            "Glucose": glucose,
-            "Hb": hb,
-            "Hydration": hydration,
-            "Fatigue": prediction
-        }
+                else:
+                    st.info(f"System Message: {result}")
 
-        st.session_state.history.append(st.session_state.latest)
-
-        with placeholder.container():
-
-            st.subheader("Vitals")
-
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Glucose", glucose)
-            c2.metric("Hb", hb)
-            c3.metric("Hydration", hydration)
-
-            st.subheader("Fatigue Level")
-
-            if prediction == "High":
-                st.error("HIGH FATIGUE")
-            elif prediction == "Medium":
-                st.warning("MEDIUM FATIGUE")
-            else:
-                st.success("LOW FATIGUE")
-
-        time.sleep(2)
-
-# =========================================================
-# 🔷 PAGE 2: CDSS OUTPUT (PIE CHART)
-# =========================================================
-elif page == "CDSS Output":
-
-    st.title("CDSS Output")
-
-    # -------- CURRENT CONDITION --------
-    if st.session_state.latest:
-
-        g = st.session_state.latest["Glucose"]
-        hb = st.session_state.latest["Hb"]
-        h = st.session_state.latest["Hydration"]
-
-        g_level = glucose_level(g)
-        hb_level_val = hb_level(hb)
-        h_level = hydration_level(h)
-
-        st.subheader("Current Condition")
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Glucose Level", g_level)
-        col2.metric("Hb Level", hb_level_val)
-        col3.metric("Hydration Level", h_level)
-
-    else:
-        st.info("Run monitoring first")
-
-    st.divider()
-
-    # -------- PIE CHART --------
-    st.subheader("CDSS Level Distribution")
-
-    if st.session_state.history:
-
-        df = pd.DataFrame(st.session_state.history)
-
-        df["Glucose Level"] = df["Glucose"].apply(glucose_level)
-        df["Hb Level"] = df["Hb"].apply(hb_level)
-        df["Hydration Level"] = df["Hydration"].apply(hydration_level)
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.write("Glucose Distribution")
-            fig1, ax1 = plt.subplots()
-            df["Glucose Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax1)
-            st.pyplot(fig1)
-
-        with col2:
-            st.write("Hb Distribution")
-            fig2, ax2 = plt.subplots()
-            df["Hb Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax2)
-            st.pyplot(fig2)
-
-        with col3:
-            st.write("Hydration Distribution")
-            fig3, ax3 = plt.subplots()
-            df["Hydration Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax3)
-            st.pyplot(fig3)
-
-    else:
-        st.info("No data available")
+            # ThingSpeak Free Tier updates every 15 seconds
+            time.sleep(15)
+            st.rerun()
 
 # =========================================================
-# 🔷 PAGE 3: INTERPRETATION
-# =========================================================
-elif page == "Interpretation":
-
-    st.title("Interpretation & Recommendation")
-
-    if st.session_state.latest:
-
-        g = st.session_state.latest["Glucose"]
-        hb = st.session_state.latest["Hb"]
-        h = st.session_state.latest["Hydration"]
-
-        st.subheader("Interpretation")
-
-        if g > 170 and h < 55:
-            st.error("Dehydration + high glucose → performance decline")
-        elif hb < 11:
-            st.warning("Low Hb → reduced oxygen delivery")
-        elif g < 90:
-            st.warning("Hypoglycemia risk")
-        else:
-            st.success("Normal condition")
-
-        st.subheader("Recommendation")
-
-        if g > 170:
-            st.write("• Increase fluid intake")
-        if hb < 11:
-            st.write("• Iron-rich diet")
-        if h < 55:
-            st.write("• Hydration required")
-        if g < 90:
-            st.write("• Immediate carbohydrate intake")
-
-    else:
-        st.info("Run monitoring first")
-
-# =========================================================
-# 🔷 PAGE 4: GRAPH ANALYSIS
+# PAGE 2: GRAPH ANALYSIS
 # =========================================================
 elif page == "Graph Analysis":
-
-    st.title("Graph Analysis")
-
+    st.title("Trend Analysis")
     if st.session_state.history:
-
         df = pd.DataFrame(st.session_state.history)
-
-        st.line_chart(df[['Glucose','Hb','Hydration']])
+        st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
         st.bar_chart(df['Fatigue'].value_counts())
-
-        st.subheader("Summary")
-
-        avg = df[['Glucose','Hb','Hydration']].mean()
-
-        st.write({
-            "Average Glucose": round(avg['Glucose'],2),
-            "Average Hb": round(avg['Hb'],2),
-            "Average Hydration": round(avg['Hydration'],2)
-        })
-
     else:
-        st.info("No data available")
+        st.info("No data recorded yet. Start monitoring to see graphs.")
 
 # =========================================================
-# 🔷 PAGE 5: RECORDED DATA
+# PAGE 3: RECORDED DATA
 # =========================================================
 elif page == "Recorded Data":
-
-    st.title("Recorded Data")
-
+    st.title("History Log")
     if st.session_state.history:
-
         df = pd.DataFrame(st.session_state.history)
-
         st.dataframe(df)
-
-        csv = df.to_csv(index=False).encode()
-
-        st.download_button(
-            "Download CSV",
-            csv,
-            "fatigue_data.csv",
-            "text/csv"
-        )
-
+        
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Data as CSV", csv, "fatigue_history.csv", "text/csv")
     else:
-        st.info("No data available")
+        st.info("No history available.")
 
 
