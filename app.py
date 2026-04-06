@@ -2,140 +2,90 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
-import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 
-# ---------------- 1. CONFIGURATION ----------------
-# Go to ThingSpeak -> Channels -> Channel Settings to get the ID
-# Go to ThingSpeak -> API Keys to get the READ API Key
-TS_CHANNEL_ID = "YOUR_CHANNEL_ID" 
-TS_READ_KEY = "YOUR_READ_API_KEY"
+# --- 1. YOUR ACTUAL THINGSPEAK CREDENTIALS ---
+TS_CHANNEL_ID = "3150784" 
+# Paste your READ API KEY here (from the API Keys tab in ThingSpeak)
+TS_READ_KEY = "PASTE_YOUR_READ_API_KEY_HERE" 
 
+# --- UPDATED TITLE IN CONFIG ---
 st.set_page_config(page_title="Fatigue Monitoring System", layout="wide")
 
-# ---------------- 2. ML MODEL SETUP ----------------
+# --- 2. ML MODEL SETUP ---
 @st.cache_data
-def load_and_train():
+def train_model():
     try:
-        # This file must be in your GitHub repository
-        data = pd.read_csv("full_fatigue_dataset.csv")
-        X = data[['Glucose', 'Hb', 'Hydration']]
-        y = data['Fatigue']
+        df = pd.read_csv("full_fatigue_dataset.csv")
         model = RandomForestClassifier()
-        model.fit(X, y)
+        model.fit(df[['Glucose', 'Hb', 'Hydration']], df['Fatigue'])
         return model
-    except Exception as e:
-        st.error(f"Error loading dataset: {e}")
+    except:
+        st.error("Error: 'full_fatigue_dataset.csv' not found in GitHub.")
         return None
 
-model = load_and_train()
+model = train_model()
 
-# ---------------- 3. DATA FETCH FUNCTION ----------------
-def fetch_from_hardware():
-    url = f"https://api.thingspeak.com/channels/{TS_CHANNEL_ID}/feeds/last.json?api_key={TS_READ_KEY}"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            # Verify that ThingSpeak actually has data in the fields
-            if 'field1' in data and data['field1'] is not None:
-                return {
-                    "Glucose": float(data['field1']),
-                    "Hb": float(data['field2']),
-                    "Hydration": float(data['field3'])
-                }
-            else:
-                return "No Hardware Data Found"
-        else:
-            return f"ThingSpeak Error: {response.status_code}"
-    except Exception as e:
-        return f"Connection Error: {e}"
+# --- 3. SESSION STATE ---
+if "history" not in st.session_state: st.session_state.history = []
+if "run" not in st.session_state: st.session_state.run = False
 
-# ---------------- 4. SESSION STATE ----------------
-if "history" not in st.session_state:
-    st.session_state.history = []
-if "monitoring" not in st.session_state:
-    st.session_state.monitoring = False
+# --- 4. THE LIVE DASHBOARD ---
+# --- UPDATED TITLE ON PAGE ---
+st.title("Fatigue Monitoring System")
+st.markdown(f"**Connected to ThingSpeak Channel:** `{TS_CHANNEL_ID}`")
 
-# ---------------- 5. NAVIGATION / SIDEBAR ----------------
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Live Monitoring", "Graph Analysis", "Recorded Data"])
+# Control Buttons
+c_start, c_stop = st.columns(2)
+if c_start.button("🚀 START MONITORING", use_container_width=True):
+    st.session_state.run = True
+if c_stop.button("🛑 STOP", use_container_width=True):
+    st.session_state.run = False
 
-# =========================================================
-# PAGE 1: LIVE MONITORING
-# =========================================================
-if page == "Live Monitoring":
-    st.title("Fatigue Monitoring System")
-    st.subheader("Hardware Status: Live Feed from ESP01")
+placeholder = st.empty()
 
-    col1, col2 = st.columns(2)
-    if col1.button("Start Monitoring"):
-        st.session_state.monitoring = True
-    if col2.button("Stop Monitoring"):
-        st.session_state.monitoring = False
-
-    placeholder = st.empty()
-
-    if st.session_state.monitoring:
-        while True:
-            result = fetch_from_hardware()
-            
-            with placeholder.container():
-                if isinstance(result, dict):
-                    # Machine Learning Prediction
-                    prediction = model.predict([[result["Glucose"], result["Hb"], result["Hydration"]]])[0]
+if st.session_state.run:
+    while True:
+        url = f"https://api.thingspeak.com/channels/{TS_CHANNEL_ID}/feeds/last.json?api_key={TS_READ_KEY}"
+        try:
+            r = requests.get(url, timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                
+                if data.get('field1') is not None:
+                    g = float(data['field1'])
+                    hb = float(data['field2'])
+                    hy = float(data['field3'])
                     
-                    # Store data
-                    result["Fatigue"] = prediction
-                    st.session_state.history.append(result)
-
-                    # Display Metrics
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Glucose", f"{result['Glucose']} mg/dL")
-                    c2.metric("Hb", f"{result['Hb']} g/dL")
-                    c3.metric("Hydration", f"{result['Hydration']}%")
-
-                    # Display Alert
-                    if prediction == "High":
-                        st.error("🚨 HIGH FATIGUE DETECTED")
-                    elif prediction == "Medium":
-                        st.warning("⚠️ MEDIUM FATIGUE")
-                    else:
-                        st.success("✅ LOW FATIGUE")
+                    pred = model.predict([[g, hb, hy]])[0]
                     
-                    st.caption(f"Last Sync: {time.strftime('%H:%M:%S')}")
-
+                    with placeholder.container():
+                        st.subheader("Live Hardware Data")
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("Glucose", f"{g} mg/dL")
+                        m2.metric("Hemoglobin", f"{hb} g/dL")
+                        m3.metric("Hydration", f"{hy}%")
+                        
+                        if pred == "High": st.error("🚨 HIGH FATIGUE DETECTED")
+                        elif pred == "Medium": st.warning("⚠️ MEDIUM FATIGUE")
+                        else: st.success("✅ LOW FATIGUE")
+                    
+                    st.session_state.history.append({"Glucose":g, "Hb":hb, "Hydration":hy, "Fatigue":pred})
                 else:
-                    st.info(f"System Message: {result}")
+                    placeholder.info("Waiting for data from hardware sensor...")
+            elif r.status_code == 404:
+                st.error("Error 404: Check Channel ID.")
+                break
+        except Exception as e:
+            st.error(f"Sync Error: {e}")
 
-            # ThingSpeak Free Tier updates every 15 seconds
-            time.sleep(15)
-            st.rerun()
+        time.sleep(15) 
+        st.rerun()
 
-# =========================================================
-# PAGE 2: GRAPH ANALYSIS
-# =========================================================
-elif page == "Graph Analysis":
-    st.title("Trend Analysis")
-    if st.session_state.history:
-        df = pd.DataFrame(st.session_state.history)
-        st.line_chart(df[['Glucose', 'Hb', 'Hydration']])
-        st.bar_chart(df['Fatigue'].value_counts())
-    else:
-        st.info("No data recorded yet. Start monitoring to see graphs.")
-
-# =========================================================
-# PAGE 3: RECORDED DATA
-# =========================================================
-elif page == "Recorded Data":
-    st.title("History Log")
-    if st.session_state.history:
-        df = pd.DataFrame(st.session_state.history)
-        st.dataframe(df)
-        
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Data as CSV", csv, "fatigue_history.csv", "text/csv")
-    else:
-        st.info("No history available.")
+# Display Data History
+if st.session_state.history:
+    st.divider()
+    st.subheader("Session History")
+    st.dataframe(pd.DataFrame(st.session_state.history).tail(10), use_container_width=True)
 
 
