@@ -1,12 +1,29 @@
 import streamlit as st
 import pandas as pd
-import random
 import time
 import matplotlib.pyplot as plt
+import requests
 from sklearn.ensemble import RandomForestClassifier
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Fatigue Monitoring System", layout="wide")
+
+# ---------------- THINGSPEAK ----------------
+THINGSPEAK_URL = "https://api.thingspeak.com/channels/3150784/feeds/last.json"
+
+def get_sensor_data():
+    try:
+        response = requests.get(THINGSPEAK_URL)
+        data = response.json()
+
+        glucose = float(data.get("field1", 0))
+        hb = float(data.get("field2", 0))
+        hydration = float(data.get("field3", 0))
+
+        return glucose, hb, hydration
+
+    except:
+        return None, None, None
 
 # ---------------- LEVEL FUNCTIONS ----------------
 def glucose_level(g):
@@ -86,10 +103,20 @@ if page == "Live Monitoring":
 
     while st.session_state.run:
 
-        glucose = random.randint(80, 200)
-        hb = random.randint(9, 16)
-        hydration = random.randint(45, 75)
+        # 🔥 GET REAL DATA
+        glucose, hb, hydration = get_sensor_data()
 
+        # fallback if no data
+        if glucose is None:
+            st.warning("⚠ Using simulated data")
+            import random
+            glucose = random.randint(80, 200)
+            hb = random.randint(9, 16)
+            hydration = random.randint(45, 75)
+        else:
+            st.success("✅ Live data from hardware")
+
+        # ML prediction
         prediction = model.predict([[glucose, hb, hydration]])[0]
 
         st.session_state.latest = {
@@ -119,16 +146,15 @@ if page == "Live Monitoring":
             else:
                 st.success("LOW FATIGUE")
 
-        time.sleep(2)
+        time.sleep(10)  # ThingSpeak delay
 
 # =========================================================
-# 🔷 PAGE 2: CDSS OUTPUT (PIE CHART)
+# 🔷 PAGE 2: CDSS OUTPUT
 # =========================================================
 elif page == "CDSS Output":
 
     st.title("CDSS Output")
 
-    # -------- CURRENT CONDITION --------
     if st.session_state.latest:
 
         g = st.session_state.latest["Glucose"]
@@ -151,7 +177,6 @@ elif page == "CDSS Output":
 
     st.divider()
 
-    # -------- PIE CHART --------
     st.subheader("CDSS Level Distribution")
 
     if st.session_state.history:
@@ -165,19 +190,16 @@ elif page == "CDSS Output":
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.write("Glucose Distribution")
             fig1, ax1 = plt.subplots()
             df["Glucose Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax1)
             st.pyplot(fig1)
 
         with col2:
-            st.write("Hb Distribution")
             fig2, ax2 = plt.subplots()
             df["Hb Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax2)
             st.pyplot(fig2)
 
         with col3:
-            st.write("Hydration Distribution")
             fig3, ax3 = plt.subplots()
             df["Hydration Level"].value_counts().plot.pie(autopct='%1.1f%%', ax=ax3)
             st.pyplot(fig3)
@@ -197,8 +219,6 @@ elif page == "Interpretation":
         g = st.session_state.latest["Glucose"]
         hb = st.session_state.latest["Hb"]
         h = st.session_state.latest["Hydration"]
-
-        st.subheader("Interpretation")
 
         if g > 170 and h < 55:
             st.error("Dehydration + high glucose → performance decline")
@@ -237,8 +257,6 @@ elif page == "Graph Analysis":
         st.line_chart(df[['Glucose','Hb','Hydration']])
         st.bar_chart(df['Fatigue'].value_counts())
 
-        st.subheader("Summary")
-
         avg = df[['Glucose','Hb','Hydration']].mean()
 
         st.write({
@@ -274,6 +292,5 @@ elif page == "Recorded Data":
 
     else:
         st.info("No data available")
-
      
 
